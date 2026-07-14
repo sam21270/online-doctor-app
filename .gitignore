@@ -1,0 +1,9 @@
+# build output
+bin/
+obj/
+
+# local database (auto-created and seeded from schema.sql on first run)
+adoc.db
+
+# macOS
+.DS_Store

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Online Doctor — Demo</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: -apple-system, "Segoe UI", sans-serif; background: #f2f5f9; color: #1c2733; }
+  header { background: #0e7c66; color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header small { opacity: .8; }
+  #who { margin-left: auto; font-size: 14px; }
+  main { max-width: 860px; margin: 20px auto; padding: 0 16px; }
+  .card { background: #fff; border-radius: 10px; padding: 18px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(20,40,60,.1); }
+  .card h2 { font-size: 15px; margin-bottom: 12px; color: #0e7c66; text-transform: uppercase; letter-spacing: .5px; }
+  input, select { padding: 8px 10px; border: 1px solid #c8d2dc; border-radius: 6px; font-size: 14px; }
+  button { padding: 8px 14px; border: 0; border-radius: 6px; background: #0e7c66; color: #fff; font-size: 14px; cursor: pointer; }
+  button:hover { background: #0a604f; }
+  button.ghost { background: #e7eef4; color: #1c2733; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #edf1f5; }
+  th { color: #5a6b7c; font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; background: #e7eef4; }
+  .pill.Pending   { background: #fff3d6; color: #8a6100; }
+  .pill.Confirmed { background: #d9f2e5; color: #0c6b3d; }
+  .pill.Cancelled, .pill.Rejected { background: #fde2e2; color: #a12525; }
+  #symArea .opt { margin: 4px 4px 0 0; background: #e7eef4; color: #1c2733; }
+  #diagnosis { background: #eef9f4; border: 1px solid #bfe8d6; border-radius: 8px; padding: 12px; margin-top: 10px; display: none; }
+  .muted { color: #5a6b7c; font-size: 13px; }
+  .msg { font-size: 13px; margin-top: 8px; color: #0e7c66; min-height: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🩺 Online Doctor</h1>
+  <small>final year project — live demo UI</small>
+  <span id="who">not logged in</span>
+</header>
+<main>
+
+  <div class="card" id="loginCard">
+    <h2>Patient login</h2>
+    <div class="row">
+      <input id="lemail" value="ravi@test.com" placeholder="email">
+      <input id="lpass" type="password" value="1234" placeholder="password">
+      <button onclick="login()">Login</button>
+      <span class="muted">seeded account: ravi@test.com / 1234</span>
+    </div>
+    <div class="msg" id="loginMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Doctors</h2>
+    <table id="docTable">
+      <thead><tr><th>Name</th><th>Speciality</th><th>City</th><th>First visit</th><th>Follow-up</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Symptom checker</h2>
+    <div class="row">
+      <input id="sym0" placeholder="main symptom, e.g. fever">
+      <button onclick="startCheck()">Start</button>
+      <button class="ghost" onclick="diagnose()" id="diagBtn" style="display:none">Get diagnosis</button>
+    </div>
+    <div id="symArea" style="margin-top:10px"></div>
+    <div id="diagnosis"></div>
+  </div>
+
+  <div class="card">
+    <h2>My appointments</h2>
+    <div class="row">
+      <button class="ghost" onclick="loadAppts('pending')">Pending</button>
+      <button class="ghost" onclick="loadAppts('current')">Upcoming</button>
+      <button class="ghost" onclick="loadAppts('previous')">Past</button>
+      <button class="ghost" onclick="loadAppts('others')">Cancelled / rejected</button>
+    </div>
+    <table id="apptTable" style="margin-top:10px">
+      <thead><tr><th>Doctor</th><th>Note</th><th>Date</th><th>Time</th><th>Fee</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="msg" id="apptMsg"></div>
+  </div>
+
+</main>
+<script>
+let pid = null;
+const $ = id => document.getElementById(id);
+const api = (m, params = {}) =>
+  fetch('/api/' + m + '?' + new URLSearchParams(params)).then(r => r.json());
+const today = () => new Date().toISOString().slice(0, 10);
+const now = () => new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+async function login() {
+  const res = await api('PLogin', { email: $('lemail').value, pass: $('lpass').value });
+  if (res.status === 'ok') {
+    pid = res.Data[0].data0;
+    $('who').textContent = 'Patient #' + pid + ' (' + $('lemail').value + ')';
+    $('loginMsg').textContent = 'Logged in ✔';
+    loadAppts('pending');
+  } else {
+    $('loginMsg').textContent = 'Wrong email or password';
+  }
+}
+
+async function loadDoctors() {
+  const res = await api('getDoctors');
+  const tb = $('docTable').querySelector('tbody');
+  tb.innerHTML = '';
+  if (res.status !== 'ok') return;
+  for (const d of res.Data) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><b>${d.data1}</b><br><span class="muted">${d.data7}</span></td>
+      <td>${d.data4}</td><td>${d.data3}</td><td>₹${d.data8}</td><td>₹${d.data9}</td>
+      <td><button onclick="book('${d.data0}','${d.data8}','${d.data1.replace(/'/g,"\\'")}')">Book</button></td>`;
+    tb.appendChild(tr);
+  }
+}
+
+async function book(did, price, name) {
+  if (!pid) return alert('Log in first (top of the page).');
+  const adate = prompt('Appointment date (YYYY-MM-DD):', today());
+  if (!adate) return;
+  const atime = prompt('Time:', '10:30 AM');
+  if (!atime) return;
+  const note = prompt('Note for the doctor:', 'General consultation') || '';
+  const res = await api('PaddAppointment',
+    { did, pid, note, adate, atime, price, date: today(), time: now() });
+  alert(res.status === 'true' ? 'Appointment requested with ' + name + ' ✔'
+      : res.status === 'already' ? 'You already have a booking at that slot.'
+      : 'Error: ' + (res.Data || res.status));
+  loadAppts('pending');
+}
+
+async function loadAppts(src) {
+  if (!pid) { $('apptMsg').textContent = 'Log in to see appointments.'; return; }
+  const res = await api('PgetAppointment', { pid, src, date: today() });
+  const tb = $('apptTable').querySelector('tbody');
+  tb.innerHTML = '';
+  $('apptMsg').textContent = res.status === 'no' ? 'Nothing in "' + src + '".' : '';
+  if (res.status !== 'ok') return;
+  for (const a of res.Data) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${a.data2}</td><td>${a.data3}</td><td>${a.data5}</td>
+      <td>${a.data6}</td><td>₹${a.data4}</td><td><span class="pill ${a.data7}">${a.data7}</span></td>`;
+    tb.appendChild(tr);
+  }
+}
+
+// --- symptom checker: sysone -> systwo (repeat) -> final1 ---
+let started = false;
+async function startCheck() {
+  const s = $('sym0').value.trim();
+  if (!s) return;
+  const res = await api('sysone', { sys: s });
+  started = true;
+  $('diagnosis').style.display = 'none';
+  showOptions(res, s);
+}
+async function moreSym(s) {
+  const res = await api('systwo', { sys: s });
+  showOptions(res, s);
+}
+function showOptions(res, chosen) {
+  const area = $('symArea');
+  $('diagBtn').style.display = 'inline-block';
+  if (res.status !== 'ok') {
+    area.innerHTML = '<span class="muted">No further matching symptoms — get your diagnosis.</span>';
+    return diagnose();
+  }
+  area.innerHTML = '<span class="muted">You reported “' + chosen + '”. Do you also have any of these?</span><br>';
+  for (const k of res.Data) {
+    const b = document.createElement('button');
+    b.className = 'opt';
+    b.textContent = k.data0;
+    b.onclick = () => moreSym(k.data0);
+    area.appendChild(b);
+  }
+  const done = document.createElement('button');
+  done.textContent = 'No, that’s all';
+  done.style.marginLeft = '6px';
+  done.onclick = diagnose;
+  area.appendChild(done);
+}
+async function diagnose() {
+  if (!started) return;
+  const res = await api('final1', { ID: pid || '100', Date: today() });
+  const box = $('diagnosis');
+  box.style.display = 'block';
+  if (res.status !== 'ok') { box.textContent = 'No matching disease found.'; return; }
+  const d = res.Data[0];
+  let html = '<b>Possible condition(s):</b> ' + d.data0.split('*').join(', ') +
+             '<br><b>See a:</b> ' + d.data1;
+  if (d.data2 !== 'no') {
+    html += '<br><b>Suggested doctors:</b><ul>';
+    for (const row of d.data2.split('#').filter(Boolean)) {
+      const f = row.split('*');
+      html += `<li>${f[1]} — ${f[3]} (${f[6]}), first visit ₹${f[8]}</li>`;
+    }
+    html += '</ul>';
+  }
+  box.innerHTML = html;
+}
+
+loadDoctors();
+</script>
+</body>
+</html>
