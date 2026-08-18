@@ -1,4 +1,4 @@
-// Online Doctor Application — modern port of the 2016-era .NET Framework 4.0 web service
+// Online Doctor Application — modern port of the original .NET Framework 4.0 web service (2022)
 // (WebAPI/ServiceAPI.cs). Same endpoints, same JSON response shapes
 // ({ "status":"ok", "Data":[{"data0":...}] }), backed by a local SQLite file instead of
 // the original remote SQL Server. SQL is parameterized (the original concatenated strings).

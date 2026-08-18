@@ -1,6 +1,6 @@
 # Online Doctor Application — Modern Port
 
-A working port of my bachelor's final-year project web service (ASP.NET / .NET Framework 4.0 / SQL Server, ~2016) to **ASP.NET Core (.NET 10)** with a local **SQLite** database, so it runs natively on macOS/Linux/Windows with no IIS and no SQL Server.
+A working port of my bachelor's final-year project web service (ASP.NET / .NET Framework 4.0 / SQL Server, 2022) to **ASP.NET Core (.NET 10)** with a local **SQLite** database, so it runs natively on macOS/Linux/Windows with no IIS and no SQL Server.
 
 The original source is preserved in [`legacy/WebAPI`](legacy/WebAPI) (database credentials redacted) for a before/after comparison — same endpoints and behavior, modernized stack.
 
